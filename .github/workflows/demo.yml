@@ -1,0 +1,86 @@
+name: demo
+
+# Builds the demo and runs every scenario the README shows, on Linux and
+# Windows, so anyone can read the real output in the run log.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache: false
+
+      - name: Go version
+        run: go version
+
+      - name: Resolve modules
+        run: |
+          if [ ! -f go.sum ]; then
+            go mod tidy
+            echo "----- go.sum (generated) -----"
+            cat go.sum
+            echo "----- end go.sum -----"
+          fi
+          go mod verify
+
+      - name: Build
+        run: |
+          BIN=melody-scope-demo
+          if [ "$RUNNER_OS" = "Windows" ]; then BIN=melody-scope-demo.exe; fi
+          echo "BIN=./$BIN" >> "$GITHUB_ENV"
+          go build -o "$BIN" .
+
+      - name: "CLI: scope:report"
+        run: $BIN scope:report
+
+      - name: "CLI: scope:fail (expected to fail)"
+        run: |
+          set +e
+          $BIN scope:fail
+          echo "exit code: $?"
+
+      - name: "CLI: scope:fail --broken-close (expected to fail)"
+        run: |
+          set +e
+          $BIN scope:fail --broken-close
+          echo "exit code: $?"
+
+      - name: "HTTP: two /scope-report requests, then /scope-fail"
+        run: |
+          $BIN > server.log 2>&1 &
+          SERVER_PID=$!
+          # wait for the server with a route that builds no WorkStamp
+          for attempt in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:8080/ready-check && break
+            sleep 1
+          done
+          echo "----- first request -----"
+          curl -s http://127.0.0.1:8080/scope-report; echo
+          echo "----- second request -----"
+          curl -s http://127.0.0.1:8080/scope-report; echo
+          echo "----- /scope-fail -----"
+          curl -s -o /dev/null -w "status: %{http_code}\n" http://127.0.0.1:8080/scope-fail
+          sleep 2
+          kill "$SERVER_PID" 2>/dev/null || true
+          echo "----- server output: [closed] lines -----"
+          grep -a '\[closed\]' server.log || true
+          echo "----- server output: full -----"
+          cat server.log
