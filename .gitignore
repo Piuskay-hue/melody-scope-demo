@@ -1,0 +1,10 @@
+# build output
+/melody-scope-demo
+/melody-scope-demo.exe
+
+# runtime files Melody writes
+/var/
+
+# local overrides
+.env.local
+.env.*.local
