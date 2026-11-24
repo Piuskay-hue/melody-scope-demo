@@ -8,6 +8,12 @@ ends, including when the handler or the command fails.
 Melody is the only direct dependency. There is no database, message broker or
 configuration layer.
 
+> **About this repository.** An independent example by
+> [@Piuskay-hue](https://github.com/Piuskay-hue). It is not affiliated with or endorsed by
+> Precision Soft, the authors of Melody. It was written with AI assistance; every output
+> shown below is copied from the public [workflow run](https://github.com/Piuskay-hue/melody-scope-demo/actions/runs/45415191764),
+> so you can check it yourself.
+
 ## What it shows
 
 - **One instance per unit of work.** Each HTTP request and each CLI run gets its own `WorkStamp`.
